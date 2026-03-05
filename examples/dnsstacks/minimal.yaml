@@ -1,0 +1,13 @@
+apiVersion: stacks.aws.hops.ops.com.ai/v1alpha1
+kind: DNSStack
+metadata:
+  name: dns
+  namespace: default
+spec:
+  clusterName: my-cluster
+  aws:
+    region: us-east-1
+  domains:
+  - name: example.com
+  clusterIssuer:
+    email: admin@example.com

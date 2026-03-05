@@ -1,0 +1,16 @@
+# Build output
+_output/
+.up/
+
+# Generated configuration (produced by hops config generate)
+apis/**/configuration.yaml
+
+# Virtual environments
+.venv/
+
+# Temporary files
+.tmp/
+
+# E2E test credentials (never commit secrets)
+**/aws-creds
+tests/**/secrets/

@@ -1,0 +1,56 @@
+# code: language=yaml
+#
+# Compose ExternalDNS sub-XRD
+#
+
+{{- if $state.externalDNS.enabled }}
+
+{{- /* Merge domainFilters from spec.domains into ExternalDNS values */ -}}
+{{- if and (gt (len $state.domainNames) 0) (eq (len $state.externalDNS.overrideAllValues) 0) }}
+  {{- $domainValues := dict "domainFilters" $state.domainNames }}
+  {{- $merged := mergeOverwrite $domainValues ($state.externalDNS.values | default dict) }}
+  {{- $_ := set $state.externalDNS "values" $merged }}
+{{- end }}
+
+---
+apiVersion: helm.aws.hops.ops.com.ai/v1alpha1
+kind: ExternalDNS
+metadata:
+  name: {{ $state.name }}-edns
+  annotations:
+    {{ setResourceNameAnnotation "external-dns" }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  clusterName: {{ $state.clusterName }}
+  aws:
+    region: {{ $state.aws.region }}
+    {{- if $state.aws.permissionsBoundaryArn }}
+    permissionsBoundaryArn: {{ $state.aws.permissionsBoundaryArn }}
+    {{- end }}
+    {{- if $state.aws.rolePrefix }}
+    rolePrefix: {{ $state.aws.rolePrefix }}
+    {{- end }}
+    {{- if gt (len $state.aws.tags) 0 }}
+    tags: {{ $state.aws.tags | toJson }}
+    {{- end }}
+  helmProviderConfigRef:
+    name: {{ $state.helm.providerConfigRef.name }}
+    kind: {{ $state.helm.providerConfigRef.kind }}
+  awsProviderConfigRef:
+    name: {{ $state.aws.providerConfigRef.name }}
+    kind: {{ $state.aws.providerConfigRef.kind }}
+  {{- if $state.externalDNS.namespace }}
+  namespace: {{ $state.externalDNS.namespace }}
+  {{- end }}
+  {{- if $state.externalDNS.name }}
+  name: {{ $state.externalDNS.name }}
+  {{- end }}
+  {{- if gt (len $state.externalDNS.overrideAllValues) 0 }}
+  overrideAllValues:
+    {{- toYaml $state.externalDNS.overrideAllValues | nindent 4 }}
+  {{- else if gt (len $state.externalDNS.values) 0 }}
+  values:
+    {{- toYaml $state.externalDNS.values | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,197 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: dnsstacks.stacks.aws.hops.ops.com.ai
+spec:
+  group: stacks.aws.hops.ops.com.ai
+  names:
+    kind: DNSStack
+    plural: dnsstacks
+  scope: Namespaced
+  defaultCompositeDeletePolicy: Foreground
+  versions:
+  - name: v1alpha1
+    referenceable: true
+    served: true
+    schema:
+      openAPIV3Schema:
+        description: DNSStack deploys DNS and TLS automation (ExternalDNS, CertManager, ClusterIssuer).
+        type: object
+        properties:
+          spec:
+            description: DNSStackSpec defines the desired state.
+            type: object
+            properties:
+              clusterName:
+                description: Name of the target cluster. Used for provider config defaults and resource naming.
+                type: string
+              aws:
+                description: AWS configuration shared across all components.
+                type: object
+                properties:
+                  region:
+                    description: AWS region.
+                    type: string
+                  permissionsBoundaryArn:
+                    description: IAM permissions boundary ARN applied to all created roles.
+                    type: string
+                  rolePrefix:
+                    description: Prefix for IAM role names.
+                    type: string
+                  tags:
+                    description: Additional AWS tags applied to all resources.
+                    type: object
+                    additionalProperties:
+                      type: string
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - region
+              managementPolicies:
+                description: Management policies for all composed resources. Defaults to ["*"].
+                type: array
+                items:
+                  type: string
+                default:
+                - "*"
+              labels:
+                description: Custom labels applied to all managed resources.
+                type: object
+                additionalProperties:
+                  type: string
+                x-kubernetes-preserve-unknown-fields: true
+              helmProviderConfigRef:
+                description: Reference to the Helm ProviderConfig. Defaults to clusterName.
+                type: object
+                properties:
+                  name:
+                    description: Name of the Helm ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+                    enum:
+                    - ProviderConfig
+                    - ClusterProviderConfig
+              awsProviderConfigRef:
+                description: Reference to the AWS ProviderConfig. Defaults to "default".
+                type: object
+                properties:
+                  name:
+                    description: Name of the AWS ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+              kubernetesProviderConfigRef:
+                description: Reference to the Kubernetes ProviderConfig. Defaults to clusterName.
+                type: object
+                properties:
+                  name:
+                    description: Name of the Kubernetes ProviderConfig.
+                    type: string
+                  kind:
+                    description: Kind of the ProviderConfig. Defaults to ProviderConfig.
+                    type: string
+                    enum:
+                    - ProviderConfig
+                    - ClusterProviderConfig
+              domains:
+                description: List of DNS domains to manage as Route53 hosted zones.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      description: Domain name (e.g. example.com).
+                      type: string
+                    externalName:
+                      description: When set, adopts an existing hosted zone instead of creating one.
+                      type: string
+                  required:
+                  - name
+              externalDNS:
+                description: ExternalDNS configuration.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to deploy ExternalDNS. Defaults to true.
+                    type: boolean
+                    default: true
+                  namespace:
+                    description: Namespace for the Helm release.
+                    type: string
+                  name:
+                    description: Name override for the Helm release.
+                    type: string
+                  values:
+                    description: Helm values merged on top of defaults.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  overrideAllValues:
+                    description: Replaces all default Helm values entirely.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+              certManager:
+                description: CertManager configuration.
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to deploy CertManager. Defaults to true.
+                    type: boolean
+                    default: true
+                  namespace:
+                    description: Namespace for the Helm release.
+                    type: string
+                  name:
+                    description: Name override for the Helm release.
+                    type: string
+                  values:
+                    description: Helm values merged on top of defaults.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  overrideAllValues:
+                    description: Replaces all default Helm values entirely.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+              clusterIssuer:
+                description: ClusterIssuer configuration (Let's Encrypt with DNS-01 Route53).
+                type: object
+                properties:
+                  enabled:
+                    description: Whether to create a ClusterIssuer. Defaults to true.
+                    type: boolean
+                    default: true
+                  name:
+                    description: Name of the ClusterIssuer. Defaults to "letsencrypt-prod".
+                    type: string
+                  email:
+                    description: Email address for Let's Encrypt registration. Required when enabled.
+                    type: string
+                  server:
+                    description: ACME server URL. Overrides the default based on staging flag.
+                    type: string
+                  staging:
+                    description: Use Let's Encrypt staging server. Defaults to false.
+                    type: boolean
+            required:
+            - clusterName
+            - aws
+          status:
+            description: DNSStackStatus defines the observed state.
+            type: object
+            properties:
+              ready:
+                description: Whether all components are ready.
+                type: boolean
+              hostedZones:
+                description: Observed state of Route53 hosted zones.
+                type: array
+                items:
+                  type: object
+                  properties:
+                    domain:
+                      description: Domain name.
+                      type: string
+                    zoneId:
+                      description: Route53 hosted zone ID.
+                      type: string

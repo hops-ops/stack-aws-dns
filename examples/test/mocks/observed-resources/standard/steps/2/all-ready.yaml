@@ -1,0 +1,116 @@
+# Step 2: All resources Ready — triggers Usage resources and full status output
+
+# Hosted zones
+---
+apiVersion: route53.aws.m.upbound.io/v1beta1
+kind: Zone
+metadata:
+  name: dns-hz-example-com
+  annotations:
+    crossplane.io/composition-resource-name: hosted-zone-example-com
+    gotemplating.fn.crossplane.io/composition-resource-name: hosted-zone-example-com
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+    - type: Synced
+      status: "True"
+  atProvider:
+    zoneId: Z0123456789EXAMPLE
+    name: example.com
+    nameServers:
+      - ns-111.awsdns-11.com
+      - ns-222.awsdns-22.net
+      - ns-333.awsdns-33.co.uk
+      - ns-444.awsdns-44.org
+---
+apiVersion: route53.aws.m.upbound.io/v1beta1
+kind: Zone
+metadata:
+  name: dns-hz-internal-example-com
+  annotations:
+    crossplane.io/composition-resource-name: hosted-zone-internal-example-com
+    gotemplating.fn.crossplane.io/composition-resource-name: hosted-zone-internal-example-com
+    crossplane.io/external-name: Z1234567890ABC
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+    - type: Synced
+      status: "True"
+  atProvider:
+    zoneId: Z1234567890ABC
+    name: internal.example.com
+    nameServers:
+      - ns-555.awsdns-55.com
+      - ns-666.awsdns-66.net
+      - ns-777.awsdns-77.co.uk
+      - ns-888.awsdns-88.org
+
+# ExternalDNS sub-XRD
+---
+apiVersion: helm.aws.hops.ops.com.ai/v1alpha1
+kind: ExternalDNS
+metadata:
+  name: dns-edns
+  annotations:
+    crossplane.io/composition-resource-name: external-dns
+    gotemplating.fn.crossplane.io/composition-resource-name: external-dns
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+    - type: Synced
+      status: "True"
+  ready: true
+  release:
+    name: external-dns
+    namespace: external-dns
+    ready: true
+
+# CertManager sub-XRD
+---
+apiVersion: helm.aws.hops.ops.com.ai/v1alpha1
+kind: CertManager
+metadata:
+  name: dns-cm
+  annotations:
+    crossplane.io/composition-resource-name: cert-manager
+    gotemplating.fn.crossplane.io/composition-resource-name: cert-manager
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+    - type: Synced
+      status: "True"
+  ready: true
+  release:
+    name: cert-manager
+    namespace: cert-manager
+    ready: true
+
+# ClusterIssuer Object
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: dns-cluster-issuer
+  annotations:
+    crossplane.io/composition-resource-name: cluster-issuer
+    gotemplating.fn.crossplane.io/composition-resource-name: cluster-issuer
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+    - type: Synced
+      status: "True"

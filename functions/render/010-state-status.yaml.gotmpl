@@ -1,0 +1,69 @@
+# code: language=yaml
+#
+# Compute status values from observed state
+#
+
+# ==============================================================================
+# Extract observed state from composed resources
+# ==============================================================================
+{{- $observed := $.observed.resources | default dict }}
+
+# Check if external-dns is ready
+{{- $ednsObs := get $observed "external-dns" | default dict }}
+{{- $ednsResource := $ednsObs.resource | default dict }}
+{{- $ednsStatus := $ednsResource.status | default dict }}
+{{- $ednsConditions := $ednsStatus.conditions | default list }}
+{{- $ednsReady := false }}
+{{- range $cond := $ednsConditions }}
+  {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
+    {{- $ednsReady = true }}
+  {{- end }}
+{{- end }}
+
+# Check if cert-manager is ready
+{{- $cmObs := get $observed "cert-manager" | default dict }}
+{{- $cmResource := $cmObs.resource | default dict }}
+{{- $cmStatus := $cmResource.status | default dict }}
+{{- $cmConditions := $cmStatus.conditions | default list }}
+{{- $cmReady := false }}
+{{- range $cond := $cmConditions }}
+  {{- if and (eq $cond.type "Ready") (eq $cond.status "True") }}
+    {{- $cmReady = true }}
+  {{- end }}
+{{- end }}
+
+# Check hosted zone readiness and collect zone IDs
+{{- $hostedZones := dict }}
+{{- range $d := $state.domains }}
+  {{- $sanitized := replace "." "-" $d.name }}
+  {{- $key := printf "hosted-zone-%s" $sanitized }}
+  {{- $hzObs := get $observed $key | default dict }}
+  {{- $hzResource := $hzObs.resource | default dict }}
+  {{- $hzAtProvider := ($hzResource.status).atProvider | default dict }}
+  {{- $zoneId := $hzAtProvider.zoneId | default "" }}
+  {{- $hostedZones = set $hostedZones $d.name (dict "zoneId" $zoneId) }}
+{{- end }}
+
+# ==============================================================================
+# Compute status output
+# ==============================================================================
+
+# Ready state determined by function-auto-ready
+{{- $ready := false }}
+
+{{- $state = set $state "observed" (dict
+  "externalDNS" (dict "ready" $ednsReady)
+  "certManager" (dict "ready" $cmReady)
+  "hostedZones" $hostedZones
+) }}
+
+# Build hosted zones status list
+{{- $hostedZonesList := list }}
+{{- range $domain, $info := $hostedZones }}
+  {{- $hostedZonesList = append $hostedZonesList (dict "domain" $domain "zoneId" ($info.zoneId | default "")) }}
+{{- end }}
+
+{{- $state = set $state "status" (dict
+  "ready" $ready
+  "hostedZones" $hostedZonesList
+) }}

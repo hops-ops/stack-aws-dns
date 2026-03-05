@@ -1,0 +1,147 @@
+# code: language=yaml
+#
+# Initialize $state with spec defaults
+#
+
+{{- $xr := getCompositeResource . }}
+{{- $spec := $xr.spec | default dict }}
+{{- $metadata := $xr.metadata | default dict }}
+
+# ==============================================================================
+# Core defaults
+# ==============================================================================
+{{- $name := $metadata.name | default "dns" }}
+{{- $clusterName := $spec.clusterName | default $name }}
+{{- $managementPolicies := $spec.managementPolicies | default (list "*") }}
+
+# Labels
+{{- $defaultLabels := dict
+  "hops.ops.com.ai/managed" "true"
+  "hops.ops.com.ai/dnsstack" $name
+}}
+{{- $labels := mergeOverwrite (dict) $defaultLabels ($spec.labels | default dict) }}
+
+# Tags
+{{- $aws := $spec.aws | default dict }}
+{{- $defaultTags := dict
+  "hops.ops.com.ai/managed" "true"
+  "hops.ops.com.ai/dnsstack" $name
+}}
+{{- $awsTags := mergeOverwrite (dict) $defaultTags ($aws.tags | default dict) }}
+
+# ==============================================================================
+# Provider config refs
+# ==============================================================================
+{{- $helmProviderConfigRef := $spec.helmProviderConfigRef | default dict }}
+{{- $helmProviderConfigRef = dict
+  "name" ($helmProviderConfigRef.name | default $clusterName)
+  "kind" ($helmProviderConfigRef.kind | default "ProviderConfig")
+}}
+
+{{- $awsProviderConfigRef := $spec.awsProviderConfigRef | default dict }}
+{{- $awsProviderConfigRef = dict
+  "name" ($awsProviderConfigRef.name | default "default")
+  "kind" ($awsProviderConfigRef.kind | default "ProviderConfig")
+}}
+
+{{- $kubernetesProviderConfigRef := $spec.kubernetesProviderConfigRef | default dict }}
+{{- $kubernetesProviderConfigRef = dict
+  "name" ($kubernetesProviderConfigRef.name | default $clusterName)
+  "kind" ($kubernetesProviderConfigRef.kind | default "ProviderConfig")
+}}
+
+# ==============================================================================
+# Component config
+# ==============================================================================
+{{- $edns := $spec.externalDNS | default dict }}
+{{- $ednsEnabled := true }}
+{{- if hasKey $edns "enabled" }}
+  {{- $ednsEnabled = $edns.enabled }}
+{{- end }}
+
+{{- $cm := $spec.certManager | default dict }}
+{{- $cmEnabled := true }}
+{{- if hasKey $cm "enabled" }}
+  {{- $cmEnabled = $cm.enabled }}
+{{- end }}
+
+{{- $ci := $spec.clusterIssuer | default dict }}
+{{- $ciEnabled := true }}
+{{- if hasKey $ci "enabled" }}
+  {{- $ciEnabled = $ci.enabled }}
+{{- end }}
+
+# Determine ACME server URL
+{{- $ciStaging := false }}
+{{- if hasKey $ci "staging" }}
+  {{- $ciStaging = $ci.staging }}
+{{- end }}
+{{- $ciServer := "https://acme-v02.api.letsencrypt.org/directory" }}
+{{- if $ciStaging }}
+  {{- $ciServer = "https://acme-staging-v02.api.letsencrypt.org/directory" }}
+{{- end }}
+{{- if $ci.server }}
+  {{- $ciServer = $ci.server }}
+{{- end }}
+
+{{- $ciName := "letsencrypt-prod" }}
+{{- if $ciStaging }}
+  {{- $ciName = "letsencrypt-staging" }}
+{{- end }}
+{{- if $ci.name }}
+  {{- $ciName = $ci.name }}
+{{- end }}
+
+# ==============================================================================
+# Domains
+# ==============================================================================
+{{- $domains := $spec.domains | default list }}
+{{- $domainNames := list }}
+{{- range $d := $domains }}
+  {{- $domainNames = append $domainNames $d.name }}
+{{- end }}
+
+# ==============================================================================
+# Initialize $state
+# ==============================================================================
+{{- $state := dict
+  "name" $name
+  "clusterName" $clusterName
+  "managementPolicies" $managementPolicies
+  "labels" $labels
+  "helm" (dict
+    "providerConfigRef" $helmProviderConfigRef
+  )
+  "kubernetes" (dict
+    "providerConfigRef" $kubernetesProviderConfigRef
+  )
+  "aws" (dict
+    "region" ($aws.region)
+    "providerConfigRef" $awsProviderConfigRef
+    "permissionsBoundaryArn" ($aws.permissionsBoundaryArn | default "")
+    "rolePrefix" ($aws.rolePrefix | default "")
+    "tags" $awsTags
+  )
+  "domains" $domains
+  "domainNames" $domainNames
+  "externalDNS" (dict
+    "enabled" $ednsEnabled
+    "namespace" ($edns.namespace | default "")
+    "name" ($edns.name | default "")
+    "values" ($edns.values | default dict)
+    "overrideAllValues" ($edns.overrideAllValues | default dict)
+  )
+  "certManager" (dict
+    "enabled" $cmEnabled
+    "namespace" ($cm.namespace | default "")
+    "name" ($cm.name | default "")
+    "values" ($cm.values | default dict)
+    "overrideAllValues" ($cm.overrideAllValues | default dict)
+  )
+  "clusterIssuer" (dict
+    "enabled" $ciEnabled
+    "name" $ciName
+    "email" ($ci.email | default "")
+    "server" $ciServer
+  )
+}}

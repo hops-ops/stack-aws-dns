@@ -1,0 +1,90 @@
+# code: language=yaml
+#
+# ClusterIssuer (Let's Encrypt DNS-01 Route53) via provider-kubernetes Object
+# Only rendered when clusterIssuer.enabled && certManager observed ready
+#
+
+{{- if and $state.clusterIssuer.enabled $state.certManager.enabled }}
+
+{{- $cmNamespace := $state.certManager.namespace | default "cert-manager" }}
+
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: {{ $state.name }}-cluster-issuer
+  annotations:
+    {{ setResourceNameAnnotation "cluster-issuer" }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  {{- if $state.observed.certManager.ready }}
+  readiness:
+    policy: SuccessfulCreate
+  {{- end }}
+  forProvider:
+    manifest:
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: {{ $state.clusterIssuer.name }}
+      spec:
+        acme:
+          {{- if $state.clusterIssuer.email }}
+          email: {{ $state.clusterIssuer.email }}
+          {{- end }}
+          server: {{ $state.clusterIssuer.server }}
+          privateKeySecretRef:
+            name: {{ $state.clusterIssuer.name }}-account-key
+          solvers:
+          {{- $hasZoneIds := false }}
+          {{- range $domain, $info := $state.observed.hostedZones }}
+            {{- if $info.zoneId }}
+              {{- $hasZoneIds = true }}
+            {{- end }}
+          {{- end }}
+          {{- if $hasZoneIds }}
+          {{- range $domain, $info := $state.observed.hostedZones }}
+          {{- if $info.zoneId }}
+          - selector:
+              dnsZones:
+              - {{ $domain }}
+            dns01:
+              route53:
+                region: {{ $state.aws.region }}
+                hostedZoneID: {{ $info.zoneId }}
+          {{- end }}
+          {{- end }}
+          {{- else }}
+          - dns01:
+              route53:
+                region: {{ $state.aws.region }}
+          {{- end }}
+  providerConfigRef:
+    name: {{ $state.kubernetes.providerConfigRef.name }}
+    kind: {{ $state.kubernetes.providerConfigRef.kind }}
+
+{{- /* Usage: delete cluster-issuer before cert-manager */}}
+{{- if $state.observed.certManager.ready }}
+---
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ $state.name }}-delete-cluster-issuer-before-cert-manager
+  annotations:
+    {{ setResourceNameAnnotation "usage-cm-cluster-issuer" }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: helm.aws.hops.ops.com.ai/v1alpha1
+    kind: CertManager
+    resourceRef:
+      name: {{ $state.name }}-cm
+  by:
+    apiVersion: kubernetes.m.crossplane.io/v1alpha2
+    kind: Object
+    resourceRef:
+      name: {{ $state.name }}-cluster-issuer
+{{- end }}
+
+{{- end }}

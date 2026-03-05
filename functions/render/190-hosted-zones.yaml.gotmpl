@@ -1,0 +1,54 @@
+# code: language=yaml
+#
+# Route53 Hosted Zones — one per domain in spec.domains
+#
+
+{{- range $d := $state.domains }}
+{{- $sanitized := replace "." "-" $d.name }}
+---
+apiVersion: route53.aws.m.upbound.io/v1beta1
+kind: Zone
+metadata:
+  name: {{ $state.name }}-hz-{{ $sanitized }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "hosted-zone-%s" $sanitized) }}
+    {{- if $d.externalName }}
+    crossplane.io/external-name: {{ $d.externalName }}
+    {{- end }}
+  labels: {{ $state.labels | toJson }}
+spec:
+  managementPolicies: {{ $state.managementPolicies | toJson }}
+  forProvider:
+    name: {{ $d.name }}
+    tags: {{ mergeOverwrite (dict "Name" (printf "%s-hz-%s" $state.name $sanitized)) $state.aws.tags | toJson }}
+  providerConfigRef:
+    name: {{ $state.aws.providerConfigRef.name }}
+    kind: {{ $state.aws.providerConfigRef.kind }}
+
+{{- /* Usage: delete external-dns before hosted zone (if both ready) */}}
+{{- if and $state.externalDNS.enabled $state.observed.externalDNS.ready }}
+{{- $hzInfo := get $state.observed.hostedZones $d.name | default dict }}
+{{- if $hzInfo.zoneId }}
+---
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: {{ $state.name }}-delete-edns-before-hz-{{ $sanitized }}
+  annotations:
+    {{ setResourceNameAnnotation (printf "usage-hz-%s-edns" $sanitized) }}
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: route53.aws.m.upbound.io/v1beta1
+    kind: Zone
+    resourceRef:
+      name: {{ $state.name }}-hz-{{ $sanitized }}
+  by:
+    apiVersion: helm.aws.hops.ops.com.ai/v1alpha1
+    kind: ExternalDNS
+    resourceRef:
+      name: {{ $state.name }}-edns
+{{- end }}
+{{- end }}
+
+{{- end }}

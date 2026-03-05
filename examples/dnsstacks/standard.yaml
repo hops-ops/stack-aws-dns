@@ -1,0 +1,25 @@
+apiVersion: stacks.aws.hops.ops.com.ai/v1alpha1
+kind: DNSStack
+metadata:
+  name: dns
+  namespace: default
+spec:
+  clusterName: prod-cluster
+  aws:
+    region: us-west-2
+    permissionsBoundaryArn: arn:aws:iam::123456789012:policy/boundary
+    rolePrefix: prod-
+    tags:
+      environment: production
+  domains:
+  - name: example.com
+  - name: internal.example.com
+    externalName: Z1234567890ABC
+  externalDNS:
+    enabled: true
+  certManager:
+    enabled: true
+  clusterIssuer:
+    enabled: true
+    email: platform@example.com
+    name: letsencrypt-prod
