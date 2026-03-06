@@ -9,7 +9,7 @@
 {{- $cmNamespace := $state.certManager.namespace | default "cert-manager" }}
 
 ---
-apiVersion: kubernetes.m.crossplane.io/v1alpha2
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
 kind: Object
 metadata:
   name: {{ $state.name }}-cluster-issuer
@@ -81,7 +81,7 @@ spec:
     resourceRef:
       name: {{ $state.name }}-cm
   by:
-    apiVersion: kubernetes.m.crossplane.io/v1alpha2
+    apiVersion: kubernetes.m.crossplane.io/v1alpha1
     kind: Object
     resourceRef:
       name: {{ $state.name }}-cluster-issuer

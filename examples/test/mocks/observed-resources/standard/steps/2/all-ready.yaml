@@ -99,7 +99,7 @@ status:
 
 # ClusterIssuer Object
 ---
-apiVersion: kubernetes.m.crossplane.io/v1alpha2
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
 kind: Object
 metadata:
   name: dns-cluster-issuer
